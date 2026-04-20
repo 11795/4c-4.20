@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lumos - AI心理支持助手</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .chat-bubble { max-width: 80%; border-radius: 1rem; padding: 0.75rem 1rem; margin-bottom: 1rem; }
+        .user-msg { background-color: #3B82F6; color: white; align-self: flex-end; border-bottom-right-radius: 0; }
+        .ai-msg { background-color: #F3F4F6; color: #1F2937; align-self: flex-start; border-bottom-left-radius: 0; }
+        #chat-window::-webkit-scrollbar { width: 4px; }
+        #chat-window::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-slate-50 h-screen flex flex-col">
+    <!-- Header -->
+    <header class="bg-white shadow-sm p-4 text-center">
+        <h1 class="text-xl font-bold text-blue-600">Lumos</h1>
+        <p class="text-xs text-gray-500">温暖、专业、懂你的AI生活教练</p>
+    </header>
+
+    <!-- Chat Window -->
+    <div id="chat-window" class="flex-1 overflow-y-auto p-4 flex flex-col">
+        <div class="chat-bubble ai-msg">你好，我是Lumos。今天有什么想和我聊聊的吗？无论是情绪困扰还是生活琐事，我都在这里。</div>
+    </div>
+
+    <!-- Input Area -->
+    <div class="p-4 bg-white border-t">
+        <div class="max-w-4xl mx-auto flex gap-2">
+            <input type="text" id="user-input" placeholder="输入消息..." class="flex-1 border rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400">
+            <button onclick="sendMessage()" id="send-btn" class="bg-blue-600 text-white px-6 py-2 rounded-full hover:bg-blue-700 transition">发送</button>
+        </div>
+    </div>
+
+    <script>
+        const chatWindow = document.getElementById('chat-window');
+        const userInput = document.getElementById('user-input');
+        // 从 localStorage 获取或生成新的 thread_id
+        let threadId = localStorage.getItem('chat_thread_id') || null;
+
+        async function sendMessage() {
+            const text = userInput.value.trim();
+            if (!text) return;
+
+            // 添加用户消息到界面
+            addMessage(text, 'user-msg');
+            userInput.value = '';
+
+            // 显示加载状态
+            const loadingId = addMessage("正在思考...", 'ai-msg', true);
+
+            try {
+                // 注意这里填入你本地 FastAPI 运行的完整地址和端口
+            const response = await fetch('http://127.0.0.1:9000/chat', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message: text, thread_id: threadId })
+            });
+
+                const data = await response.json();
+
+                // 移除加载提示，添加AI回复
+                document.getElementById(loadingId).remove();
+                addMessage(data.reply, 'ai-msg');
+
+                // 更新 thread_id
+                threadId = data.thread_id;
+                localStorage.setItem('chat_thread_id', threadId);
+            } catch (error) {
+                document.getElementById(loadingId).innerText = "糟糕，连接超时了，请稍后再试。";
+            }
+        }
+
+        function addMessage(text, className, isLoading = false) {
+            const div = document.createElement('div');
+            const id = 'msg-' + Date.now();
+            div.id = id;
+            div.className = `chat-bubble ${className}`;
+            div.innerText = text;
+            chatWindow.appendChild(div);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+            return id;
+        }
+
+        // 回车发送
+        userInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') sendMessage(); });
+    </script>
+</body>
+</html>
